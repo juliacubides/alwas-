@@ -1,0 +1,87 @@
+% Código teórico
+% Parámetros constantes
+rho_0 = 1.188;   % kg/m^3, Densidad del aire
+C0 = 340;        % m/s, Velocidad del sonido
+L = 46.8e-3;        % m, Longitud física de la pared de la ranura efectiva
+L_T =43.5e-3;      % m, Longitud física de la pared de la ranura (para transmisión)
+a = 9.06e-3;     % m, Radio de la ALWA
+b = 1e-3;      % m, Ancho de la ranura
+
+% Rango de frecuencias
+f = linspace(900, 1700, 250); 
+w = 2 * pi * f;                 
+
+% Cálculo del área de sección transversal S
+S = pi * a^2;
+
+% Cálculo de la masa acústica de la ranura para reflexión (Mra) y transmisión (Mra_T)
+Mra = (rho_0 / (2 * pi * b)) * log(1 + (L / a));
+Mra_T = (rho_0 / (2 * pi * b)) * log(1 + (L_T / a));
+
+% Cálculo de las impedancias de entrada de la ranura Zra y Zra_T
+Zra = 1i * w * Mra;
+Zra_T = 1i * w * Mra_T;
+
+% Cálculo del coeficiente de reflexión 
+R = abs(-((rho_0 * C0) / (2 * S)) ./ (((rho_0 * C0) / (2 * S)) + Zra));
+
+% Cálculo del coeficiente de transmisión
+T = abs(Zra_T ./ ((rho_0 * C0) / (2 * S) + Zra_T));
+
+% Código de la simulación
+% Nombres de los archivos a leer
+fileNames = {'RyT_modelo_10_celdas_1mm_Bongard.txt'};
+
+% Crear una figura con dimensiones personalizadas
+fig = figure;
+fig.Position = [100, 100, 1100, 600]; % [x, y, ancho, alto]
+hold on;
+
+% Graficar los resultados teóricos
+plot(f, R, 'b', 'LineWidth', 1.5, 'DisplayName', 'Teórico |R|');
+plot(f, T, 'r', 'LineWidth', 1.5, 'DisplayName', 'Teórico |T|');
+
+% Graficar los resultados de simulación
+colors = {'g', 'm', 'k'}; % Colores para los archivos
+for i = 1:length(fileNames)
+    % Leer el archivo actual
+    data = load(fileNames{i});
+    frecuencias = data(:, 1);
+    valores = data(:, 2);
+
+    % Detectar el segundo ciclo mediante la repetición del primer valor
+    idxStartSecondCycle = find(frecuencias == frecuencias(1), 2, 'first');
+    idxStartSecondCycle = idxStartSecondCycle(2); % Inicio del segundo ciclo
+
+    % Separar los datos de |R| y |T|
+    frecuencias_R = frecuencias(1:idxStartSecondCycle - 1);
+    valores_R = valores(1:idxStartSecondCycle - 1);
+
+    frecuencias_T = frecuencias(idxStartSecondCycle:end);
+    valores_T = valores(idxStartSecondCycle:end);
+
+    filenamechanged = fileNames{i}((5:end-4));
+
+    % Graficar |R| con el color correspondiente
+    plot(frecuencias_R, valores_R, ['o'], 'DisplayName', ['Simulación |R| - ' strrep(filenamechanged, '_', ' ')]);
+
+    % Graficar |T| con el color correspondiente y estilo de línea diferente
+    plot(frecuencias_T, valores_T, ['-x'], 'DisplayName', ['Simulación |T| - ' strrep(filenamechanged, '_', ' ')]);
+end
+
+% Configurar los ejes y la leyenda
+xlabel('Frecuencia (Hz)');
+ylabel('|R| y |T| valores');
+title('Coeficientes |R| y |T|');
+legend('Location', 'best');
+grid on;
+hold off;
+
+% Cálculo de la eficiencia
+Efficiency = abs(T).^2 +abs(R).^2 ;
+figure;
+plot(f, Efficiency, '-o', 'LineWidth', 1.5);
+xlabel('Frecuencia (Hz)');
+ylabel('Eficiencia');
+title('Eficiencia vs. Frecuencia');
+grid on;

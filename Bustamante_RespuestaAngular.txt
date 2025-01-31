@@ -1,0 +1,142 @@
+% Leer archivo .txt
+filename = 'Directividad_modelo_30_celdas_0.5mm_Bustamante.txt'; % Cambia 'datos.txt' por el nombre de tu archivo
+data = readmatrix(filename);
+
+% Reemplazar guiones bajos con espacios en el nombre del archivo
+filenameConEspacios = strrep(filename, '_', ' ');
+
+% Extraer columnas
+theta = data(:, 1); % Columna de ángulos
+magnitud = data(:, 2); % Columna de magnitudes en dB
+
+% Parámetros del problema
+frecuenciaInicial = 2000; % Frecuencia inicial en Hz
+pasoFrecuencia = 100; % Incremento de frecuencia en Hz
+frecuenciaFinal = 6500;
+numFrecuencias = (frecuenciaFinal - frecuenciaInicial) / pasoFrecuencia; % Número total de frecuencias
+frecuencias = frecuenciaInicial:pasoFrecuencia:(frecuenciaInicial + (numFrecuencias - 1) * pasoFrecuencia);
+
+% Inicializar matriz de respuesta
+respuestaAngular = zeros(numFrecuencias, 3); % [Frecuencia, Ángulo, Magnitud]
+
+% Tamaño del segmento para cada frecuencia
+segmento = 120; % Número de ángulos configurados en Comsol
+
+% Procesar cada frecuencia
+for i = 1:numFrecuencias
+    % Definir el rango del segmento actual
+    inicio = (i - 1) * segmento + 1;
+    fin = i * segmento;
+
+    % Extraer los datos del segmento actual
+    thetaSegmento = theta(inicio:fin);
+    magnitudSegmento = magnitud(inicio:fin);
+
+    % Filtrar ángulos positivos
+    positivos = thetaSegmento >= 0;
+    thetaPositivos = thetaSegmento(positivos);
+    magnitudPositivos = magnitudSegmento(positivos);
+
+    % Encontrar la magnitud máxima y el ángulo correspondiente
+    [magnitudMax, idxMax] = max(magnitudPositivos);
+    anguloMax = thetaPositivos(idxMax);
+
+    % Guardar en la matriz de respuesta
+    respuestaAngular(i, :) = [frecuencias(i), anguloMax, magnitudMax];
+end
+
+% Mostrar resultado final
+disp('Respuesta Angular (Frecuencia, Ángulo, Magnitud):');
+disp(respuestaAngular);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Suavizado y Cálculo de Dispersión %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Extraer datos para suavizar
+frecuencias = respuestaAngular(:, 1);
+angulosMaximos = respuestaAngular(:, 2);
+
+% Aplicar suavizado
+angulosSuavizados = smoothdata(angulosMaximos, 'movmean', 5);
+
+% Convertir ángulos suavizados a grados
+angulosSuavizadosGrados = rad2deg(angulosSuavizados);
+
+% Parámetro "d" (longitud de celda unitaria)
+d = 0.017; % Longitud de la celda unitaria
+
+% Constante de onda k0
+c = 343; % Velocidad del sonido en aire en m/s
+k0 = 2 * pi * frecuencias / c; % Número de onda
+
+% Cálculo de beta (despejado de θ = β / k0)
+beta = angulosSuavizados .* k0; % Cálculo de beta
+
+dispersion = d * beta; % Cálculo de dispersión
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Resultados teóricos %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+K = 1.42e5;  % Módulo de Bulk para el aire en Pascales
+rho = 1.225; % Densidad del aire en kg/m³
+c0= 343;%sqrt(K / rho);  % Cálculo de la velocidad del aire
+
+%Dimensiones ALWA
+lwg = 0.5; %Longitud de las guías de onda de entrada y salida
+awg = 3.25e-3; %Radio de las guías de onda de entrada y salida
+a = 4.95e-3; %Radio de la ALWA
+b = 0.5e-3; %Ancho de la ranura
+Le = 0.02; %Pared de la ranura (Longitud efectiva)
+L = 0.0175; %Pared de la ranura (Longitud Física)
+d = 0.017; %Longitud de la celda unitaria
+s = pi*a^2; %Area de la guia de onda
+labs = 0.475; %Región absorbente
+
+nVis = 18.6e-6; %coeficiente de viscosidad del aire
+densidadAire = 1.223; %Densidad del aire
+
+f0 = 2000; %Frecuencia central
+w0=2*pi*f0;
+
+% Rango de frecuencia
+frecuenciaTeorica = linspace(2000, 7000, 100); % Frecuencias entre 2000 y 7000 Hz
+wTeorica = 2 * pi * frecuenciaTeorica;
+
+% Ecuaciones teóricas
+Araya= 1 - ((pi*b*d)/(s*log(1+(L/a)))).*((wTeorica.^2/(w0)^2)-1);
+constantePropagacionTeorica = acosh(Araya) / d;
+betaTeorica = imag(constantePropagacionTeorica);
+dispersionTeorica = d * betaTeorica;
+
+k0Teorico = wTeorica / c0;
+thetaTeorico = asin(betaTeorica ./ k0Teorico); % Ángulo en radianes
+thetaTeoricoDeg = rad2deg(thetaTeorico);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Gráficas combinadas %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Crear una figura con dimensiones personalizadas
+fig = figure;
+fig.Position = [100, 100, 1200, 600]; % [x, y, ancho, alto]
+
+% Gráfico de Ángulo vs. Frecuencia (Teórico y Simulado)
+subplot(2, 1, 1);
+hold on;
+plot(frecuencias, angulosSuavizadosGrados, '-o', 'DisplayName', 'Simulación');
+plot(frecuenciaTeorica, thetaTeoricoDeg, '--', 'DisplayName', 'Teórico');
+xlabel('Frecuencia (Hz)');
+ylabel('Ángulo (°)');
+title('Ángulo de Máxima Presión Sonora por Frecuencia (Suavizado)');
+legend('show');
+grid on;
+
+% Gráfico de Dispersión vs. Frecuencia (Teórico y Simulado)
+subplot(2, 1, 2);
+hold on;
+plot(frecuencias, dispersion, '-x', 'DisplayName', 'Simulación');
+plot(frecuenciaTeorica, dispersionTeorica, '--', 'DisplayName', 'Teórico');
+xlabel('Frecuencia (Hz)');
+ylabel('β*d [rad]');
+title('Dispersión por Frecuencia');
+legend('show');
+grid on;
+
+% Concatenar el nombre del archivo en el título general
+sgtitle(['Comparación de Respuesta Angular y Dispersión: ', filenameConEspacios]);

@@ -1,0 +1,56 @@
+K = 137.4e3;  % Módulo de Bulk para el aire en Pascales
+rho = 1.188; % Densidad del aire en kg/m³
+c0= 340;%sqrt(K / rho);  % Cálculo de la velocidad del aire
+
+%Dimensiones ALWA
+awg = 5.54e-3; %Radio de las guías de onda de entrada y salida
+a = 9.06e-3; %Radio de la ALWA
+b = 1e-3; %Ancho de la ranura
+Le = 46.8e-3; %Pared de la ranura (Longitud efectiva)
+L = 43.5e-3; %Pared de la ranura (Longitud Física)
+d = 34e-3; %Longitud de la celda unitaria
+s = pi*a^2; %Area de la guia de onda
+
+densidadAire = rho; %Densidad del aire
+
+f0 = 1000; %Frecuencia central
+w0=2*pi*f0;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%DISPERSIÓN
+% Rango de frecuencia
+
+frecuenciaTeorica = linspace(900,2000,25); % Frecuencias entre 2000 y 7000 Hz
+wTeorica = 2 * pi * frecuenciaTeorica;
+
+% Ecuaciones teóricas
+Araya= 1 - ((pi*b*d)/(s*log(1+(L/a)))).*((wTeorica.^2/(w0)^2)-1);
+constantePropagacionTeorica = acosh(Araya) / d;
+betaTeorica = imag(constantePropagacionTeorica);
+dispersionTeorica = d * betaTeorica;
+
+% Graficar resultados
+figure;
+
+% Graficar dispersión
+plot(frecuenciaTeorica, dispersionTeorica );
+title('Diagrama de Dispersión');
+xlabel('Frecuencia (Hz)');
+ylabel('Dispersión');
+grid on;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%RESPUESTA ANGULAR
+
+k0Teorico = wTeorica / c0;
+thetaTeorico = asin(betaTeorica ./ k0Teorico); % Ángulo en radianes
+thetaTeoricoDeg = rad2deg(thetaTeorico);
+
+% Gráfica de la respuesta angular
+figure;
+plot(frecuenciaTeorica, thetaTeoricoDeg, 'LineWidth', 1.5);
+xlabel('Frecuencia (Hz)');
+ylabel('Ángulo de Radiación (°)');
+title('Respuesta Angular');
+grid on;
+ylim([-90, 90]); 

@@ -1,0 +1,39 @@
+% Parámetros constantes
+rho_0 = 1.225;   % kg/m^3, Densidad del aire
+C0 = 343;        % m/s, Velocidad del sonido
+L = 0.02;      % m, Longitud física de la pared de la ranura efectiva
+L_T = 0.02;      % m, Longitud física de la pared de la ranura (para transmisión)
+a = 4.95e-3;     % m, Radio de la ALWA
+b = 0.5e-3;      % m, Ancho de la ranura
+
+% Rango de frecuencias
+f = linspace(2000, 7000, 1000); 
+w = 2 * pi * f;                 
+
+% Cálculo del área de sección transversal S
+S = pi * a^2;
+
+% Cálculo de la masa acústica de la ranura para reflexión (Mra) y transmisión (Mra_T)
+Mra = (rho_0 / (2 * pi * b)) * log(1 + (L / a));
+Mra_T = (rho_0 / (2 * pi * b)) * log(1 + (L_T / a));
+
+% Cálculo de las impedancias de entrada de la ranura Zra y Zra_T
+Zra = 1i * w * Mra;
+Zra_T = 1i * w * Mra_T;
+
+% Cálculo del coeficiente de reflexión 
+R = abs(-((rho_0 * C0) / (2 * S)) ./ (((rho_0 * C0) / (2 * S)) + Zra));
+
+% Cálculo del coeficiente de transmisión
+T = abs(Zra_T ./ ((rho_0 * C0) / (2 * S) + Zra_T));
+
+%Graficas
+figure;
+plot(f, R, 'b', 'LineWidth', 1.5);
+hold on;
+plot(f, T, 'r', 'LineWidth', 1.5);
+xlabel('Frecuencia (Hz)');
+ylabel('Coeficientes |R| y |T|');
+title('Coeficientes de Reflexión y Transmisión vs Frecuencia');
+legend('Coeficiente de Reflexión |R|', 'Coeficiente de Transmisión |T|');
+grid on;
